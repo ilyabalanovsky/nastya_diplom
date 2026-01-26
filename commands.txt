@@ -1,0 +1,36 @@
+# Команды для запуска/остановки/перезапуска (PowerShell)
+# Выполняйте из корня проекта: d:\JetBrains Projects\Cursor\nastya_diplom
+
+## Backend (FastAPI)
+
+# Запуск backend
+cd .\backend
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# Остановка backend (убивает процесс на порту 8000)
+$proc = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
+if ($proc) { Stop-Process -Id $proc -Force }
+
+# Перезапуск backend
+$proc = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
+if ($proc) { Stop-Process -Id $proc -Force }
+cd .\backend
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+
+## Frontend (Vite)
+
+# Запуск frontend
+cd .\frontend
+npm run dev -- --host 127.0.0.1 --port 3000
+
+# Остановка frontend (убивает процесс на порту 3000)
+$proc = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
+if ($proc) { Stop-Process -Id $proc -Force }
+
+# Перезапуск frontend
+$proc = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
+if ($proc) { Stop-Process -Id $proc -Force }
+cd .\frontend
+npm run dev -- --host 127.0.0.1 --port 3000
+
