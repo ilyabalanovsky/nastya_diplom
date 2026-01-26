@@ -77,7 +77,7 @@ async def generate_enrollment_order(
     ]
     
     order_date = request.order_date or datetime.now()
-    order_number = request.order_number or f"№ {order_date.strftime('%Y-%m-%d-%H%M')}"
+    order_number = request.order_number or f"{order_date.strftime('%Y-%m-%d-%H%M')}"
     enroll_date = order_date
     students_lines = "\n".join(
         [f"{idx}. {s['full_name']} - {s['school_name']}" for idx, s in enumerate(students_data, 1)]
