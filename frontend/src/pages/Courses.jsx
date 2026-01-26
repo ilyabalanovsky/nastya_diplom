@@ -20,7 +20,7 @@ function Courses() {
       setCourses(response.data)
     } catch (error) {
       console.error('Ошибка загрузки курсов:', error)
-      alert('Ошибка загрузки данных')
+      console.error('Ошибка загрузки данных')
     } finally {
       setLoading(false)
     }
@@ -46,7 +46,7 @@ function Courses() {
       loadCourses()
     } catch (error) {
       console.error('Ошибка удаления:', error)
-      alert('Ошибка удаления курса')
+      console.error('Ошибка удаления курса')
     }
   }
 

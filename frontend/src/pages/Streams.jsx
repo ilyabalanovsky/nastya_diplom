@@ -25,7 +25,7 @@ function Streams() {
       setStreams(response.data)
     } catch (error) {
       console.error('Ошибка загрузки потоков:', error)
-      alert('Ошибка загрузки данных')
+      console.error('Ошибка загрузки данных')
     } finally {
       setLoading(false)
     }
@@ -72,7 +72,7 @@ function Streams() {
       }
     } catch (error) {
       console.error('Ошибка удаления:', error)
-      alert('Ошибка удаления потока')
+      console.error('Ошибка удаления потока')
     }
   }
 
@@ -104,7 +104,7 @@ function Streams() {
       loadStreams()
     } catch (error) {
       console.error('Ошибка отчисления:', error)
-      alert('Ошибка отчисления студента')
+      console.error('Ошибка отчисления студента')
     }
   }
 

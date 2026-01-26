@@ -21,7 +21,7 @@ function EnrollModal({ stream, onClose, onSave }) {
       setStudents(availableStudents)
     } catch (error) {
       console.error('Ошибка загрузки студентов:', error)
-      alert('Ошибка загрузки данных')
+      console.error('Ошибка загрузки данных')
     } finally {
       setLoading(false)
     }
@@ -78,7 +78,7 @@ function EnrollModal({ stream, onClose, onSave }) {
     } catch (error) {
       console.error('Ошибка зачисления:', error)
       const errorMessage = error.response?.data?.detail || 'Ошибка зачисления студента'
-      alert(errorMessage)
+      console.error(errorMessage)
     } finally {
       setEnrolling(false)
     }

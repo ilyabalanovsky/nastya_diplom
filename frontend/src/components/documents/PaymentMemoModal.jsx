@@ -63,7 +63,7 @@ function PaymentMemoModal({ onClose }) {
       onClose()
     } catch (error) {
       console.error('Ошибка генерации документа:', error)
-      alert('Ошибка генерации документа')
+      console.error('Ошибка генерации документа')
     } finally {
       setGenerating(false)
     }

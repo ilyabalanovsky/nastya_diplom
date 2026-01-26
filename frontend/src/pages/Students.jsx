@@ -22,7 +22,7 @@ function Students() {
       setStudents(response.data)
     } catch (error) {
       console.error('Ошибка загрузки студентов:', error)
-      alert('Ошибка загрузки данных')
+      console.error('Ошибка загрузки данных')
     } finally {
       setLoading(false)
     }
@@ -64,7 +64,7 @@ function Students() {
       loadStudents()
     } catch (error) {
       console.error('Ошибка удаления:', error)
-      alert('Ошибка удаления студента')
+      console.error('Ошибка удаления студента')
     }
   }
 
@@ -94,7 +94,7 @@ function Students() {
       loadStudents()
     } catch (error) {
       console.error('Ошибка импорта:', error)
-      alert('Ошибка импорта файла')
+      console.error('Ошибка импорта файла')
     }
     
     e.target.value = ''

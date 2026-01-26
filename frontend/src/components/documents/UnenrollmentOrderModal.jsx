@@ -92,7 +92,7 @@ function UnenrollmentOrderModal({ onClose }) {
       onClose()
     } catch (error) {
       console.error('Ошибка генерации документа:', error)
-      alert(error.response?.data?.detail || 'Ошибка генерации документа')
+      console.error(error.response?.data?.detail || 'Ошибка генерации документа')
     } finally {
       setGenerating(false)
     }

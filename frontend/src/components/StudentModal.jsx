@@ -47,7 +47,7 @@ function StudentModal({ student, onClose, onSave }) {
       onSave()
     } catch (error) {
       console.error('Ошибка сохранения:', error)
-      alert('Ошибка сохранения данных')
+      console.error('Ошибка сохранения данных')
     } finally {
       setLoading(false)
     }

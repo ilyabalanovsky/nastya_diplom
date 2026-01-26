@@ -38,7 +38,7 @@ function CourseModal({ course, onClose, onSave }) {
     } catch (error) {
       console.error('Ошибка сохранения:', error)
       const errorMessage = error.response?.data?.detail || 'Ошибка сохранения данных'
-      alert(errorMessage)
+      console.error(errorMessage)
     } finally {
       setLoading(false)
     }
