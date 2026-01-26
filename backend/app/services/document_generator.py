@@ -8,6 +8,33 @@ from typing import List, Dict, Optional
 
 
 class DocumentGenerator:
+    @staticmethod
+    def _apply_font(doc: Document, font_name: str, font_size: int) -> None:
+        style = doc.styles['Normal']
+        style.font.name = font_name
+        style.font.size = Pt(font_size)
+
+        def apply_to_run(run):
+            run.font.name = font_name
+            run.font.size = Pt(font_size)
+            r_pr = run._element.get_or_add_rPr()
+            r_fonts = r_pr.get_or_add_rFonts()
+            r_fonts.set(qn('w:ascii'), font_name)
+            r_fonts.set(qn('w:hAnsi'), font_name)
+            r_fonts.set(qn('w:eastAsia'), font_name)
+            r_fonts.set(qn('w:cs'), font_name)
+
+        for paragraph in doc.paragraphs:
+            for run in paragraph.runs:
+                apply_to_run(run)
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        for run in paragraph.runs:
+                            apply_to_run(run)
+
 
     @staticmethod
     def _replace_placeholders(doc: Document, mapping: Dict[str, str]) -> None:
@@ -42,6 +69,7 @@ class DocumentGenerator:
     ) -> BytesIO:
         doc = Document(template_path)
         DocumentGenerator._replace_placeholders(doc, mapping)
+        DocumentGenerator._apply_font(doc, "Times New Roman", 14)
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)

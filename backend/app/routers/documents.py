@@ -85,7 +85,7 @@ async def generate_enrollment_order(
 
     template_path = os.getenv(
         "ENROLLMENT_TEMPLATE_PATH",
-        r"C:\Users\iliya\Downloads\Dokumenty\Шаблон приказ о зачислении.docx",
+        os.path.join(os.path.dirname(__file__), "template.docx"),
     )
     if not os.path.isfile(template_path):
         raise HTTPException(
