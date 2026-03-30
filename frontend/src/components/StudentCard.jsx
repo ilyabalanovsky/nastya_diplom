@@ -3,6 +3,7 @@ import { communicationAPI } from '../api/api'
 
 function StudentCard({ student, onClose }) {
   const [contactInfo, setContactInfo] = useState(null)
+  const [showEmailModal, setShowEmailModal] = useState(false)
 
   useEffect(() => {
     loadContactInfo()
@@ -17,7 +18,19 @@ function StudentCard({ student, onClose }) {
     }
   }
 
-  const handleEmailClick = (email) => {
+  const openEmailService = (service, email) => {
+    const encodedEmail = encodeURIComponent(email)
+
+    if (service === 'gmail') {
+      window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodedEmail}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    if (service === 'mailru') {
+      window.open(`https://e.mail.ru/compose/?to=${encodedEmail}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+
     window.location.href = `mailto:${email}`
   }
 
@@ -43,9 +56,9 @@ function StudentCard({ student, onClose }) {
         <div className="contact-links">
           <button
             className="btn btn-small btn-primary"
-            onClick={() => handleEmailClick(student.email)}
+            onClick={() => setShowEmailModal(true)}
           >
-            📧 Написать email
+            Написать письмо
           </button>
         </div>
       </div>
@@ -94,6 +107,51 @@ function StudentCard({ student, onClose }) {
           <div>Последнее обновление: {new Date(student.updated_at).toLocaleString('ru-RU')}</div>
         )}
       </div>
+
+      {showEmailModal && (
+        <div className="modal">
+          <div className="modal-content" style={{ maxWidth: '460px' }}>
+            <div className="modal-header">
+              <h2>Отправить письмо</h2>
+              <button className="close-btn" onClick={() => setShowEmailModal(false)}>
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '6px' }}>Адрес получателя</div>
+              <div><strong>{student.email}</strong></div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => openEmailService('gmail', student.email)}
+              >
+                Открыть в Gmail
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => openEmailService('mailru', student.email)}
+              >
+                Открыть в Mail.ru
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => openEmailService('default', student.email)}
+              >
+                Открыть в почтовом клиенте
+              </button>
+            </div>
+
+            <div className="actions" style={{ marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowEmailModal(false)}>
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

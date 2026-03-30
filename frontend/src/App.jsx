@@ -4,6 +4,8 @@ import Students from './pages/Students'
 import Courses from './pages/Courses'
 import Streams from './pages/Streams'
 import Documents from './pages/Documents'
+import EmailMailings from './pages/EmailMailings'
+import { DialogProvider } from './components/DialogProvider'
 import './App.css'
 
 function Navbar() {
@@ -26,6 +28,9 @@ function Navbar() {
           <Link to="/documents" className={location.pathname === '/documents' ? 'active' : ''}>
             Документы
           </Link>
+          <Link to="/mailings" className={location.pathname === '/mailings' ? 'active' : ''}>
+            Рассылки
+          </Link>
         </div>
       </div>
     </nav>
@@ -34,15 +39,18 @@ function Navbar() {
 
 function App() {
   return (
-    <Router>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Students />} />
-        <Route path="/courses" element={<Courses />} />
-        <Route path="/streams" element={<Streams />} />
-        <Route path="/documents" element={<Documents />} />
-      </Routes>
-    </Router>
+    <DialogProvider>
+      <Router>
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<Students />} />
+          <Route path="/courses" element={<Courses />} />
+          <Route path="/streams" element={<Streams />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/mailings" element={<EmailMailings />} />
+        </Routes>
+      </Router>
+    </DialogProvider>
   )
 }
 

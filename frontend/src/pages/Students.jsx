@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { studentsAPI, importAPI, communicationAPI } from '../api/api'
 import StudentModal from '../components/StudentModal'
 import StudentCard from '../components/StudentCard'
+import { useDialog } from '../components/DialogProvider'
 
 function Students() {
   const [students, setStudents] = useState([])
@@ -10,6 +11,7 @@ function Students() {
   const [editingStudent, setEditingStudent] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const { alert, confirm } = useDialog()
 
   useEffect(() => {
     loadStudents()
@@ -55,7 +57,7 @@ function Students() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этого студента?')) {
+    if (!(await confirm('Вы уверены, что хотите удалить этого студента?'))) {
       return
     }
 
@@ -79,17 +81,17 @@ function Students() {
     if (!file) return
 
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      alert('Пожалуйста, выберите файл Excel (.xlsx или .xls)')
+      await alert('Пожалуйста, выберите файл Excel (.xlsx или .xls)')
       return
     }
 
     try {
       const response = await importAPI.importStudents(file)
       if (response.data.errors && response.data.errors.length > 0) {
-        alert(`Импортировано: ${response.data.imported?.length || 0}. Ошибок: ${response.data.errors.length}`)
+        await alert(`Импортировано: ${response.data.imported?.length || 0}. Ошибок: ${response.data.errors.length}`)
         console.error('Ошибки импорта:', response.data.errors)
       } else {
-        alert(`Успешно импортировано ${response.data.length} студентов`)
+        await alert(`Успешно импортировано ${response.data.length} студентов`)
       }
       loadStudents()
     } catch (error) {

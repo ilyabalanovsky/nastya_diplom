@@ -1,312 +1,274 @@
-from docx import Document
-from docx.shared import Pt, Inches, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
+from copy import deepcopy
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
-from typing import List, Dict, Optional
+from typing import Dict, List
 
-
+from docx import Document
+from docx.shared import Pt
+from docx.oxml.ns import qn
 class DocumentGenerator:
     @staticmethod
-    def _apply_font(doc: Document, font_name: str, font_size: int) -> None:
-        style = doc.styles['Normal']
-        style.font.name = font_name
-        style.font.size = Pt(font_size)
+    def _apply_times_new_roman(run) -> None:
+        run.font.name = "Times New Roman"
+        run.font.size = Pt(14)
+        r_pr = run._element.get_or_add_rPr()
+        r_fonts = r_pr.get_or_add_rFonts()
+        r_fonts.set(qn("w:ascii"), "Times New Roman")
+        r_fonts.set(qn("w:hAnsi"), "Times New Roman")
+        r_fonts.set(qn("w:eastAsia"), "Times New Roman")
+        r_fonts.set(qn("w:cs"), "Times New Roman")
 
-        def apply_to_run(run):
-            run.font.name = font_name
-            run.font.size = Pt(font_size)
-            r_pr = run._element.get_or_add_rPr()
-            r_fonts = r_pr.get_or_add_rFonts()
-            r_fonts.set(qn('w:ascii'), font_name)
-            r_fonts.set(qn('w:hAnsi'), font_name)
-            r_fonts.set(qn('w:eastAsia'), font_name)
-            r_fonts.set(qn('w:cs'), font_name)
+    @staticmethod
+    def _replace_in_paragraph(paragraph, mapping: Dict[str, str]) -> None:
+        if not paragraph.runs:
+            return
 
-        for paragraph in doc.paragraphs:
-            for run in paragraph.runs:
-                apply_to_run(run)
+        full_text = "".join(run.text for run in paragraph.runs)
+        if not full_text:
+            return
 
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for paragraph in cell.paragraphs:
-                        for run in paragraph.runs:
-                            apply_to_run(run)
+        replacements: list[tuple[int, int, str]] = []
+        for key, value in mapping.items():
+            start = 0
+            while True:
+                index = full_text.find(key, start)
+                if index == -1:
+                    break
+                replacements.append((index, index + len(key), value))
+                start = index + len(key)
 
+        if not replacements:
+            return
+
+        replacements.sort(key=lambda item: item[0], reverse=True)
+
+        run_ranges = []
+        cursor = 0
+        for run in paragraph.runs:
+            run_text = run.text
+            run_start = cursor
+            run_end = cursor + len(run_text)
+            run_ranges.append((run, run_start, run_end))
+            cursor = run_end
+
+        for start, end, replacement in replacements:
+            affected = [
+                (run, run_start, run_end)
+                for run, run_start, run_end in run_ranges
+                if run_end > start and run_start < end
+            ]
+            if not affected:
+                continue
+
+            first_run, first_start, first_end = affected[0]
+            last_run, last_start, last_end = affected[-1]
+
+            prefix = first_run.text[: max(0, start - first_start)]
+            suffix = last_run.text[max(0, end - last_start):]
+            first_run.text = f"{prefix}{replacement}{suffix}"
+            DocumentGenerator._apply_times_new_roman(first_run)
+
+            for run, _, _ in affected[1:]:
+                run.text = ""
+
+            delta = len(replacement) - (end - start)
+            updated_ranges = []
+            for run, run_start, run_end in run_ranges:
+                if run_end <= start:
+                    updated_ranges.append((run, run_start, run_end))
+                elif run_start >= end:
+                    updated_ranges.append((run, run_start + delta, run_end + delta))
+                elif run is first_run:
+                    new_end = first_start + len(first_run.text)
+                    updated_ranges.append((run, first_start, new_end))
+                else:
+                    updated_ranges.append((run, run_start, run_start))
+            run_ranges = updated_ranges
 
     @staticmethod
     def _replace_placeholders(doc: Document, mapping: Dict[str, str]) -> None:
-        def replace_in_paragraph(paragraph):
-            if not paragraph.runs:
-                return
-            original = "".join(run.text for run in paragraph.runs)
-            if not original:
-                return
-            updated = original
-            for key, value in mapping.items():
-                updated = updated.replace(key, value)
-            if updated == original:
-                return
-            for run in paragraph.runs:
-                run.text = ""
-            paragraph.add_run(updated)
-
         for paragraph in doc.paragraphs:
-            replace_in_paragraph(paragraph)
+            DocumentGenerator._replace_in_paragraph(paragraph, mapping)
 
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
-                        replace_in_paragraph(paragraph)
+                        DocumentGenerator._replace_in_paragraph(paragraph, mapping)
 
     @staticmethod
-    def generate_enrollment_order_from_template(
+    def _replace_row_placeholders(row, mapping: Dict[str, str]) -> None:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                DocumentGenerator._replace_in_paragraph(paragraph, mapping)
+
+    @staticmethod
+    def _save(doc: Document) -> BytesIO:
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer
+
+    @staticmethod
+    def generate_from_template(template_path: str, mapping: Dict[str, str]) -> BytesIO:
+        doc = Document(template_path)
+        DocumentGenerator._replace_placeholders(doc, mapping)
+        return DocumentGenerator._save(doc)
+
+    @staticmethod
+    def to_decimal(value: float | str | Decimal) -> Decimal:
+        return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @staticmethod
+    def format_number(value: float | str | Decimal) -> str:
+        normalized = DocumentGenerator.to_decimal(value)
+        as_string = format(normalized, "f")
+        if "." in as_string:
+            as_string = as_string.rstrip("0").rstrip(".")
+        return as_string.replace(".", ",")
+
+    @staticmethod
+    def _format_decimal(value: Decimal) -> str:
+        normalized = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        as_string = format(normalized, "f")
+        if "." in as_string:
+            as_string = as_string.rstrip("0").rstrip(".")
+        return as_string.replace(".", ",")
+
+    @staticmethod
+    def _plural(number: int, forms: tuple[str, str, str]) -> str:
+        number = abs(number) % 100
+        last = number % 10
+        if 10 < number < 20:
+            return forms[2]
+        if 1 < last < 5:
+            return forms[1]
+        if last == 1:
+            return forms[0]
+        return forms[2]
+
+    @staticmethod
+    def _number_to_words(number: int, female: bool = False) -> str:
+        units = {
+            False: ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять"],
+            True: ["", "одна", "две", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять"],
+        }
+        teens = [
+            "десять",
+            "одиннадцать",
+            "двенадцать",
+            "тринадцать",
+            "четырнадцать",
+            "пятнадцать",
+            "шестнадцать",
+            "семнадцать",
+            "восемнадцать",
+            "девятнадцать",
+        ]
+        tens = ["", "", "двадцать", "тридцать", "сорок", "пятьдесят", "шестьдесят", "семьдесят", "восемьдесят", "девяносто"]
+        hundreds = ["", "сто", "двести", "триста", "четыреста", "пятьсот", "шестьсот", "семьсот", "восемьсот", "девятьсот"]
+        orders = [
+            (("", "", ""), False),
+            (("тысяча", "тысячи", "тысяч"), True),
+            (("миллион", "миллиона", "миллионов"), False),
+            (("миллиард", "миллиарда", "миллиардов"), False),
+        ]
+
+        if number == 0:
+            return "ноль"
+
+        parts: List[str] = []
+        order_index = 0
+        remaining = number
+
+        while remaining > 0:
+            chunk = remaining % 1000
+            remaining //= 1000
+
+            if chunk:
+                chunk_parts: List[str] = []
+                chunk_hundreds = chunk // 100
+                chunk_tens = (chunk % 100) // 10
+                chunk_units = chunk % 10
+
+                if chunk_hundreds:
+                    chunk_parts.append(hundreds[chunk_hundreds])
+
+                if chunk_tens == 1:
+                    chunk_parts.append(teens[chunk_units])
+                else:
+                    if chunk_tens:
+                        chunk_parts.append(tens[chunk_tens])
+                    if chunk_units:
+                        use_female = orders[order_index][1]
+                        chunk_parts.append(units[use_female][chunk_units])
+
+                order_forms = orders[order_index][0]
+                if order_forms[0]:
+                    chunk_parts.append(DocumentGenerator._plural(chunk, order_forms))
+
+                parts.insert(0, " ".join(part for part in chunk_parts if part))
+
+            order_index += 1
+
+        return " ".join(part for part in parts if part)
+
+    @staticmethod
+    def format_rub_amount_text(value: float | Decimal) -> str:
+        amount = DocumentGenerator.to_decimal(value)
+        rubles = int(amount)
+        kopeks = int((amount - Decimal(rubles)) * 100)
+        rubles_text = DocumentGenerator._number_to_words(rubles)
+        rubles_unit = DocumentGenerator._plural(rubles, ("рубль", "рубля", "рублей"))
+        kopeks_unit = DocumentGenerator._plural(kopeks, ("копейка", "копейки", "копеек"))
+        return f"{rubles_text} {rubles_unit} {kopeks:02d} {kopeks_unit}"
+
+    @staticmethod
+    def generate_payment_memo_from_template(
         template_path: str,
         mapping: Dict[str, str],
+        payment_rows: List[Dict[str, str]],
+        total_hours: str,
+        total_amount: str,
+        total_amount_text: str,
     ) -> BytesIO:
         doc = Document(template_path)
         DocumentGenerator._replace_placeholders(doc, mapping)
-        DocumentGenerator._apply_font(doc, "Times New Roman", 14)
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-    
-    @staticmethod
-    def generate_enrollment_order(
-        course_name: str,
-        stream_name: str,
-        students: List[Dict],
-        order_number: Optional[str] = None,
-        order_date: Optional[datetime] = None
-    ) -> BytesIO:
-        doc = Document()
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Times New Roman'
-        font.size = Pt(14)
-        heading = doc.add_heading('ПРИКАЗ', 0)
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        if not order_number:
-            order_number = f"№ {datetime.now().strftime('%Y-%m-%d-%H%M')}"
-        if not order_date:
-            order_date = datetime.now()
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        date_para.add_run(f'от {order_date.strftime("%d.%m.%Y")} г.')
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('О зачислении школьников на образовательный курс').bold = True
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run(f'В соответствии с заявлениями родителей (законных представителей) и на основании решения приемной комиссии')
-        para = doc.add_paragraph()
-        para.add_run('ПРИКАЗЫВАЮ:').bold = True
-        para = doc.add_paragraph()
-        para.add_run(f'Зачислить на курс "{course_name}", поток "{stream_name}" следующих школьников:')
-        doc.add_paragraph()
-        for idx, student in enumerate(students, 1):
-            para = doc.add_paragraph(style='List Number')
-            run = para.runs[0] if para.runs else para.add_run()
-            run.text = f'{idx}. {student.get("full_name", "")} - {student.get("school_name", "")}'
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run(f'Всего зачислено: {len(students)} человек')
-        doc.add_paragraph()
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Руководитель образовательной программы')
-        para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-    
-    @staticmethod
-    def generate_unenrollment_order(
-        course_name: str,
-        stream_name: str,
-        students: List[Dict],
-        reason: Optional[str] = None,
-        order_number: Optional[str] = None,
-        order_date: Optional[datetime] = None
-    ) -> BytesIO:
-        doc = Document()
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Times New Roman'
-        font.size = Pt(14)
-        heading = doc.add_heading('ПРИКАЗ', 0)
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        if not order_number:
-            order_number = f"№ {datetime.now().strftime('%Y-%m-%d-%H%M')}"
-        if not order_date:
-            order_date = datetime.now()
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        date_para.add_run(f'от {order_date.strftime("%d.%m.%Y")} г.')
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Об отчислении школьников с образовательного курса').bold = True
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run(f'В связи с {reason or "личными обстоятельствами"} и на основании заявлений родителей (законных представителей)')
-        para = doc.add_paragraph()
-        para.add_run('ПРИКАЗЫВАЮ:').bold = True
-        para = doc.add_paragraph()
-        para.add_run(f'Отчислить с курса "{course_name}", поток "{stream_name}" следующих школьников:')
-        doc.add_paragraph()
-        for idx, student in enumerate(students, 1):
-            para = doc.add_paragraph(style='List Number')
-            run = para.runs[0] if para.runs else para.add_run()
-            run.text = f'{idx}. {student.get("full_name", "")} - {student.get("school_name", "")}'
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run(f'Всего отчислено: {len(students)} человек')
-        doc.add_paragraph()
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Руководитель образовательной программы')
-        para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-    
-    @staticmethod
-    def generate_payment_memo(
-        course_name: str,
-        stream_name: str,
-        instructor_name: str,
-        hours: float,
-        rate_per_hour: float,
-        total_amount: Optional[float] = None,
-        memo_date: Optional[datetime] = None
-    ) -> BytesIO:
-        doc = Document()
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Times New Roman'
-        font.size = Pt(14)
-        
-        heading = doc.add_heading('СЛУЖЕБНАЯ ЗАПИСКА', 0)
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        if not memo_date:
-            memo_date = datetime.now()
-        
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        date_para.add_run(f'от {memo_date.strftime("%d.%m.%Y")} г.')
-        
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('на оплату сотрудникам вуза').bold = True
-        
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Прошу произвести оплату за проведение занятий по образовательной программе:')
-        
-        doc.add_paragraph()
-        
-        table = doc.add_table(rows=5, cols=2)
-        table.style = 'Light Grid Accent 1'
-        data = [
-            ('Курс:', course_name),
-            ('Поток:', stream_name),
-            ('Преподаватель:', instructor_name),
-            ('Количество часов:', str(hours)),
-            ('Ставка за час (руб.):', f'{rate_per_hour:,.2f}'),
-        ]
-        
-        for i, (label, value) in enumerate(data):
-            table.rows[i].cells[0].text = label
-            table.rows[i].cells[1].text = value
-        
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        if not total_amount:
-            total_amount = hours * rate_per_hour
-        para.add_run(f'Итого к оплате: {total_amount:,.2f} руб.').bold = True
-        
-        doc.add_paragraph()
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Руководитель образовательной программы')
-        para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-    
-    @staticmethod
-    def generate_access_pass(
-        student_name: str,
-        student_school: str,
-        course_name: str,
-        stream_name: str,
-        parent_name: str,
-        parent_phone: str,
-        valid_from: Optional[datetime] = None,
-        valid_to: Optional[datetime] = None,
-        pass_date: Optional[datetime] = None
-    ) -> BytesIO:
-        doc = Document()
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Times New Roman'
-        font.size = Pt(14)
-        heading = doc.add_heading('СЛУЖЕБНАЯ ЗАПИСКА', 0)
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        if not pass_date:
-            pass_date = datetime.now()
-        
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        date_para.add_run(f'от {pass_date.strftime("%d.%m.%Y")} г.')
-        
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('на пропуск в вуз').bold = True
-        
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Прошу выдать пропуск для посещения занятий следующему школьнику:')
-        
-        doc.add_paragraph()
-        
-        table = doc.add_table(rows=7, cols=2)
-        table.style = 'Light Grid Accent 1'
-        
-        if not valid_from:
-            valid_from = datetime.now()
-        if not valid_to:
-            from datetime import timedelta
-            valid_to = valid_from + timedelta(days=365)
-        data = [
-            ('ФИО школьника:', student_name),
-            ('Школа:', student_school),
-            ('Курс:', course_name),
-            ('Поток:', stream_name),
-            ('ФИО родителя:', parent_name),
-            ('Телефон родителя:', parent_phone),
-            ('Пропуск действителен:', f'с {valid_from.strftime("%d.%m.%Y")} по {valid_to.strftime("%d.%m.%Y")}'),
-        ]
-        
-        for i, (label, value) in enumerate(data):
-            table.rows[i].cells[0].text = label
-            table.rows[i].cells[1].text = value
-        
-        doc.add_paragraph()
-        doc.add_paragraph()
-        para = doc.add_paragraph()
-        para.add_run('Руководитель образовательной программы')
-        para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
+
+        if len(doc.tables) < 2:
+            raise ValueError("Payment template does not contain the expected payments table")
+
+        payments_table = doc.tables[1]
+        if len(payments_table.rows) < 3:
+            raise ValueError("Payment template table must contain a header, template row, and total row")
+
+        template_row = payments_table.rows[1]
+        total_row = payments_table.rows[2]
+        template_row_xml = deepcopy(template_row._tr)
+
+        DocumentGenerator._replace_row_placeholders(template_row, payment_rows[0])
+
+        for row_mapping in payment_rows[1:]:
+            new_row = deepcopy(template_row_xml)
+            total_row._tr.addprevious(new_row)
+            inserted_row = payments_table.rows[-2]
+            DocumentGenerator._replace_row_placeholders(inserted_row, row_mapping)
+
+        DocumentGenerator._replace_row_placeholders(
+            total_row,
+            {
+                "{{HOURS}}": total_hours,
+                "{{SUM}}": total_amount,
+            },
+        )
+
+        DocumentGenerator._replace_placeholders(
+            doc,
+            {
+                "{{SUM}}": total_amount,
+                "{{SUM_TEXT}}": total_amount_text,
+            },
+        )
+
+        return DocumentGenerator._save(doc)

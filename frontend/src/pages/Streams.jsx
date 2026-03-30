@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { streamsAPI, coursesAPI, studentsAPI } from '../api/api'
 import StreamModal from '../components/StreamModal'
 import EnrollModal from '../components/EnrollModal'
+import EnrollmentOrderModal from '../components/documents/EnrollmentOrderModal'
+import UnenrollmentOrderModal from '../components/documents/UnenrollmentOrderModal'
+import { useDialog } from '../components/DialogProvider'
 
 function Streams() {
   const [streams, setStreams] = useState([])
@@ -9,9 +12,15 @@ function Streams() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showEnrollModal, setShowEnrollModal] = useState(false)
+  const [enrollTargetStream, setEnrollTargetStream] = useState(null)
   const [editingStream, setEditingStream] = useState(null)
   const [selectedStream, setSelectedStream] = useState(null)
   const [selectedCourseId, setSelectedCourseId] = useState(null)
+  const [showEnrollmentOrderModal, setShowEnrollmentOrderModal] = useState(false)
+  const [pendingEnrollmentOrder, setPendingEnrollmentOrder] = useState(null)
+  const [showUnenrollmentModal, setShowUnenrollmentModal] = useState(false)
+  const [pendingUnenrollment, setPendingUnenrollment] = useState(null)
+  const { confirm } = useDialog()
 
   useEffect(() => {
     loadStreams()
@@ -60,7 +69,7 @@ function Streams() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот поток?')) {
+    if (!(await confirm('Вы уверены, что хотите удалить этот поток?'))) {
       return
     }
 
@@ -86,17 +95,33 @@ function Streams() {
     loadStreamDetails(stream.id)
   }
 
-  const handleEnroll = (stream) => {
-    setSelectedStream(stream)
-    setShowEnrollModal(true)
+  const handleEnroll = async (stream) => {
+    try {
+      const response = await streamsAPI.getById(stream.id)
+      setEnrollTargetStream(response.data)
+      setShowEnrollModal(true)
+    } catch (error) {
+      console.error('Ошибка загрузки потока для зачисления:', error)
+      console.error('Не удалось открыть форму зачисления')
+    }
   }
 
   const handleUnenroll = async (studentId, streamId) => {
-    if (!window.confirm('Вы уверены, что хотите отчислить этого студента?')) {
+    if (!(await confirm('Вы уверены, что хотите отчислить этого студента?'))) {
       return
     }
 
     try {
+      const shouldGenerateOrder = await confirm('Сгенерировать приказ об отчислении?')
+      if (shouldGenerateOrder) {
+        setPendingUnenrollment({
+          streamId,
+          studentIds: [studentId],
+        })
+        setShowUnenrollmentModal(true)
+        return
+      }
+
       await streamsAPI.unenroll(studentId, streamId)
       if (selectedStream && selectedStream.id === streamId) {
         loadStreamDetails(streamId)
@@ -108,8 +133,27 @@ function Streams() {
     }
   }
 
-  const handleEnrollSave = () => {
+  const handleUnenrollmentComplete = ({ streamId }) => {
+    setShowUnenrollmentModal(false)
+    setPendingUnenrollment(null)
+    if (selectedStream && selectedStream.id === streamId) {
+      loadStreamDetails(streamId)
+    }
+    loadStreams()
+  }
+
+  const handleEnrollSave = (payload = null) => {
     setShowEnrollModal(false)
+    setEnrollTargetStream(null)
+
+    if (payload?.openEnrollmentOrder) {
+      setPendingEnrollmentOrder({
+        streamId: payload.streamId,
+        studentIds: payload.studentIds,
+      })
+      setShowEnrollmentOrderModal(true)
+    }
+
     if (selectedStream) {
       loadStreamDetails(selectedStream.id)
     }
@@ -163,12 +207,17 @@ function Streams() {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <button
-              className="btn btn-success"
-              onClick={() => handleEnroll(selectedStream)}
-            >
-              Зачислить студента
-            </button>
+            <div className="actions">
+              <button
+                className="btn btn-success"
+                onClick={() => handleEnroll(selectedStream)}
+              >
+                Зачислить студентов
+              </button>
+              <button className="btn btn-secondary" onClick={() => setSelectedStream(null)}>
+                Вернуться к списку потоков
+              </button>
+            </div>
           </div>
 
           {selectedStream.students && selectedStream.students.length > 0 ? (
@@ -242,7 +291,13 @@ function Streams() {
                           className="btn btn-small btn-primary"
                           onClick={() => handleViewDetails(stream)}
                         >
-                          Просмотр
+                          Студенты
+                        </button>
+                        <button
+                          className="btn btn-small btn-success"
+                          onClick={() => handleEnroll(stream)}
+                        >
+                          Зачислить
                         </button>
                         <button
                           className="btn btn-small btn-secondary"
@@ -278,13 +333,39 @@ function Streams() {
         />
       )}
 
-      {showEnrollModal && selectedStream && (
+      {showEnrollModal && enrollTargetStream && (
         <EnrollModal
-          stream={selectedStream}
+          stream={enrollTargetStream}
           onClose={() => {
             setShowEnrollModal(false)
+            setEnrollTargetStream(null)
           }}
           onSave={handleEnrollSave}
+        />
+      )}
+
+      {showEnrollmentOrderModal && pendingEnrollmentOrder && (
+        <EnrollmentOrderModal
+          onClose={() => {
+            setShowEnrollmentOrderModal(false)
+            setPendingEnrollmentOrder(null)
+          }}
+          initialStreamId={pendingEnrollmentOrder.streamId}
+          initialStudentIds={pendingEnrollmentOrder.studentIds}
+        />
+      )}
+
+      {showUnenrollmentModal && pendingUnenrollment && (
+        <UnenrollmentOrderModal
+          onClose={() => {
+            setShowUnenrollmentModal(false)
+            setPendingUnenrollment(null)
+          }}
+          initialStreamId={pendingUnenrollment.streamId}
+          initialStudentIds={pendingUnenrollment.studentIds}
+          hideDatabaseOption
+          autoUnenrollAfterGenerate
+          onComplete={handleUnenrollmentComplete}
         />
       )}
     </div>

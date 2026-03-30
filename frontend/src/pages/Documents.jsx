@@ -80,6 +80,7 @@ function Documents() {
       {showUnenrollmentModal && (
         <UnenrollmentOrderModal
           onClose={() => setShowUnenrollmentModal(false)}
+          hideDatabaseOption={false}
         />
       )}
 

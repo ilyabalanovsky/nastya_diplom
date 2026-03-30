@@ -122,5 +122,28 @@ class UnenrollStudent(BaseModel):
     stream_id: int
 
 
+class StreamMailingRequest(BaseModel):
+    stream_id: int
+    subject: str
+    message: str
+
+
+class StreamMailingFailure(BaseModel):
+    student_id: int
+    student_name: str
+    email: EmailStr
+    error: str
+
+
+class StreamMailingResult(BaseModel):
+    stream_id: int
+    stream_name: str
+    total_recipients: int
+    sent_count: int
+    skipped_count: int
+    failed_count: int
+    failed_recipients: List[StreamMailingFailure] = []
+
+
 CourseWithStreams.model_rebuild()
 StreamWithStudents.model_rebuild()

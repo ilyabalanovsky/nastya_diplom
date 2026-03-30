@@ -1,13 +1,40 @@
-version: "3.9"
-
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: university_courses
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d university_courses"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
     ports:
       - "3400:8000"
     volumes:
       - ./backend:/app
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: university_courses
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/university_courses
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -19,3 +46,6 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- --host 0.0.0.0 --port 5173
+
+volumes:
+  postgres_data:

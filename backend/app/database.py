@@ -6,7 +6,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./university_courses.db")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "university_courses")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}",
+)
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})

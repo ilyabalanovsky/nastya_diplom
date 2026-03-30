@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import students, courses, streams, import_excel, communication, documents
+from app.routers import students, courses, streams, import_excel, communication, documents, mailings
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,6 +22,7 @@ app.include_router(streams.router, prefix="/api/streams", tags=["streams"])
 app.include_router(import_excel.router, prefix="/api/import", tags=["import"])
 app.include_router(communication.router, prefix="/api/communication", tags=["communication"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
+app.include_router(mailings.router, prefix="/api/mailings", tags=["mailings"])
 
 
 @app.get("/")

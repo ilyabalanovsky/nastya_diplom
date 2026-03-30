@@ -232,6 +232,19 @@ tbody tr:hover {
   color: #666;
 }
 
+.dialog-modal {
+  max-width: 440px;
+}
+
+.dialog-body {
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.dialog-actions {
+  justify-content: flex-end;
+}
+
 .navbar {
   background-color: #007bff;
   color: white;
@@ -286,6 +299,11 @@ tbody tr:hover {
   margin: 0;
 }
 
+.page-subtitle {
+  margin-top: 8px;
+  color: #666;
+}
+
 .actions {
   display: flex;
   gap: 10px;
@@ -327,4 +345,154 @@ tbody tr:hover {
 .badge-success {
   background-color: #28a745;
   color: white;
+}
+
+.mailings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.mailing-form-card,
+.mailing-preview-card {
+  margin-bottom: 0;
+}
+
+.mailing-textarea {
+  min-height: 260px;
+}
+
+.mailing-field-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.mailing-placeholders {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.mailing-placeholder-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mailing-placeholder-chip {
+  border: 1px solid #cfe0ff;
+  background: #eef5ff;
+  color: #0056b3;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.mailing-placeholder-chip:hover {
+  background: #dbe9ff;
+}
+
+.mailing-meta {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #444;
+}
+
+.mailing-recipient-list {
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.mailing-recipient-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fafafa;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
+.mailing-recipient-item.is-active {
+  border-color: #007bff;
+  background: #eef5ff;
+}
+
+.mailing-preview-box {
+  border: 1px solid #dbe4f0;
+  background: #f8fbff;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.mailing-preview-header {
+  margin-bottom: 10px;
+}
+
+.mailing-preview-subject {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.mailing-preview-message {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: #333;
+}
+
+.mailing-status-modal {
+  max-width: 560px;
+}
+
+.mailing-status-body {
+  display: grid;
+  gap: 16px;
+  line-height: 1.5;
+}
+
+.mailing-status-stats {
+  display: grid;
+  gap: 8px;
+}
+
+.mailing-status-errors {
+  display: grid;
+  gap: 10px;
+}
+
+.mailing-status-error-list {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.mailing-status-error-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff5f5;
+  border: 1px solid #f3c7c7;
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 900px) {
+  .mailings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    align-items: flex-start;
+  }
 }

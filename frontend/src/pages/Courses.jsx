@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { coursesAPI } from '../api/api'
 import CourseModal from '../components/CourseModal'
 import { Link } from 'react-router-dom'
+import { useDialog } from '../components/DialogProvider'
 
 function Courses() {
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingCourse, setEditingCourse] = useState(null)
+  const { confirm } = useDialog()
 
   useEffect(() => {
     loadCourses()
@@ -37,7 +39,7 @@ function Courses() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот курс? Все потоки также будут удалены.')) {
+    if (!(await confirm('Вы уверены, что хотите удалить этот курс? Все потоки также будут удалены.'))) {
       return
     }
 

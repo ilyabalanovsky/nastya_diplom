@@ -1,15 +1,25 @@
-import React, { useState, useEffect } from 'react'
-import { streamsAPI, documentsAPI } from '../../api/api'
+import React, { useEffect, useState } from 'react'
+import { documentsAPI, streamsAPI } from '../../api/api'
+import { useDialog } from '../DialogProvider'
 
-function UnenrollmentOrderModal({ onClose }) {
+function UnenrollmentOrderModal({
+  onClose,
+  initialStreamId = null,
+  initialStudentIds = [],
+  hideDatabaseOption = false,
+  autoUnenrollAfterGenerate = false,
+  onComplete,
+}) {
   const [streams, setStreams] = useState([])
-  const [selectedStream, setSelectedStream] = useState(null)
+  const [selectedStream, setSelectedStream] = useState(initialStreamId)
   const [students, setStudents] = useState([])
-  const [selectedStudentIds, setSelectedStudentIds] = useState([])
-  const [reason, setReason] = useState('')
+  const [selectedStudentIds, setSelectedStudentIds] = useState(initialStudentIds)
   const [orderNumber, setOrderNumber] = useState('')
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0])
+  const [unenrollDate, setUnenrollDate] = useState(new Date().toISOString().split('T')[0])
+  const [unenrollInDatabase, setUnenrollInDatabase] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const { alert } = useDialog()
 
   useEffect(() => {
     loadStreams()
@@ -18,8 +28,18 @@ function UnenrollmentOrderModal({ onClose }) {
   useEffect(() => {
     if (selectedStream) {
       loadStreamStudents()
+    } else {
+      setStudents([])
     }
   }, [selectedStream])
+
+  useEffect(() => {
+    setSelectedStream(initialStreamId)
+  }, [initialStreamId])
+
+  useEffect(() => {
+    setSelectedStudentIds(initialStudentIds)
+  }, [initialStudentIds])
 
   const loadStreams = async () => {
     try {
@@ -32,25 +52,32 @@ function UnenrollmentOrderModal({ onClose }) {
 
   const loadStreamStudents = async () => {
     if (!selectedStream) return
-    
+
     try {
       const response = await streamsAPI.getById(selectedStream)
-      setStudents(response.data.students || [])
+      const streamStudents = response.data.students || []
+      setStudents(streamStudents)
+      setSelectedStudentIds((prev) => {
+        if (initialStreamId === selectedStream && initialStudentIds.length > 0) {
+          return initialStudentIds
+        }
+        return prev.filter((studentId) => streamStudents.some((student) => student.id === studentId))
+      })
     } catch (error) {
       console.error('Ошибка загрузки студентов:', error)
     }
   }
 
   const handleStreamChange = (e) => {
-    const streamId = parseInt(e.target.value)
-    setSelectedStream(streamId)
+    const streamId = parseInt(e.target.value, 10)
+    setSelectedStream(Number.isNaN(streamId) ? null : streamId)
     setSelectedStudentIds([])
   }
 
   const handleStudentToggle = (studentId) => {
-    setSelectedStudentIds(prev => 
+    setSelectedStudentIds((prev) =>
       prev.includes(studentId)
-        ? prev.filter(id => id !== studentId)
+        ? prev.filter((id) => id !== studentId)
         : [...prev, studentId]
     )
   }
@@ -59,13 +86,13 @@ function UnenrollmentOrderModal({ onClose }) {
     if (selectedStudentIds.length === students.length) {
       setSelectedStudentIds([])
     } else {
-      setSelectedStudentIds(students.map(s => s.id))
+      setSelectedStudentIds(students.map((student) => student.id))
     }
   }
 
   const handleGenerate = async () => {
     if (!selectedStream || selectedStudentIds.length === 0) {
-      alert('Выберите поток и хотя бы одного студента')
+      await alert('Выберите поток и хотя бы одного студента')
       return
     }
 
@@ -74,9 +101,9 @@ function UnenrollmentOrderModal({ onClose }) {
       const response = await documentsAPI.generateUnenrollmentOrder({
         stream_id: selectedStream,
         student_ids: selectedStudentIds,
-        reason: reason || null,
         order_number: orderNumber || null,
-        order_date: orderDate ? new Date(orderDate).toISOString() : null
+        order_date: orderDate ? new Date(orderDate).toISOString() : null,
+        unenroll_date: unenrollDate ? new Date(unenrollDate).toISOString() : null,
       })
 
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -88,11 +115,22 @@ function UnenrollmentOrderModal({ onClose }) {
       link.remove()
       window.URL.revokeObjectURL(url)
 
-      alert('Документ успешно сгенерирован и скачан')
+      if (autoUnenrollAfterGenerate || unenrollInDatabase) {
+        await Promise.all(
+          selectedStudentIds.map((studentId) => streamsAPI.unenroll(studentId, selectedStream))
+        )
+      }
+
+      await alert('Документ успешно сгенерирован и скачан')
+      onComplete?.({
+        streamId: selectedStream,
+        studentIds: selectedStudentIds,
+        unenrolled: autoUnenrollAfterGenerate || unenrollInDatabase,
+      })
       onClose()
     } catch (error) {
       console.error('Ошибка генерации документа:', error)
-      console.error(error.response?.data?.detail || 'Ошибка генерации документа')
+      await alert(error.response?.data?.detail || 'Ошибка генерации документа')
     } finally {
       setGenerating(false)
     }
@@ -108,13 +146,9 @@ function UnenrollmentOrderModal({ onClose }) {
 
         <div className="form-group">
           <label>Поток *</label>
-          <select
-            value={selectedStream || ''}
-            onChange={handleStreamChange}
-            required
-          >
+          <select value={selectedStream || ''} onChange={handleStreamChange} required>
             <option value="">Выберите поток</option>
-            {streams.map(stream => (
+            {streams.map((stream) => (
               <option key={stream.id} value={stream.id}>
                 {stream.name} (ID: {stream.id})
               </option>
@@ -123,32 +157,30 @@ function UnenrollmentOrderModal({ onClose }) {
         </div>
 
         {selectedStream && students.length > 0 && (
-          <>
-            <div className="form-group">
-              <label>Студенты для отчисления *</label>
-              <button
-                type="button"
-                className="btn btn-small btn-secondary"
-                onClick={handleSelectAll}
-                style={{ marginBottom: '10px' }}
-              >
-                {selectedStudentIds.length === students.length ? 'Снять выделение' : 'Выбрать всех'}
-              </button>
-              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
-                {students.map(student => (
-                  <label key={student.id} style={{ display: 'block', marginBottom: '8px' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedStudentIds.includes(student.id)}
-                      onChange={() => handleStudentToggle(student.id)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    {student.full_name} - {student.school_name}
-                  </label>
-                ))}
-              </div>
+          <div className="form-group">
+            <label>Студенты для приказа *</label>
+            <button
+              type="button"
+              className="btn btn-small btn-secondary"
+              onClick={handleSelectAll}
+              style={{ marginBottom: '10px' }}
+            >
+              {selectedStudentIds.length === students.length ? 'Снять выделение' : 'Выбрать всех'}
+            </button>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
+              {students.map((student) => (
+                <label key={student.id} style={{ display: 'block', marginBottom: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedStudentIds.includes(student.id)}
+                    onChange={() => handleStudentToggle(student.id)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  {student.full_name} - {student.school_name}
+                </label>
+              ))}
             </div>
-          </>
+          </div>
         )}
 
         {selectedStream && students.length === 0 && (
@@ -156,16 +188,6 @@ function UnenrollmentOrderModal({ onClose }) {
             В этом потоке нет зачисленных студентов.
           </p>
         )}
-
-        <div className="form-group">
-          <label>Причина отчисления</label>
-          <input
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Например: по собственному желанию"
-          />
-        </div>
 
         <div className="form-group">
           <label>Номер приказа</label>
@@ -185,6 +207,28 @@ function UnenrollmentOrderModal({ onClose }) {
             onChange={(e) => setOrderDate(e.target.value)}
           />
         </div>
+
+        <div className="form-group">
+          <label>Дата отчисления</label>
+          <input
+            type="date"
+            value={unenrollDate}
+            onChange={(e) => setUnenrollDate(e.target.value)}
+          />
+        </div>
+
+        {!hideDatabaseOption && (
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                checked={unenrollInDatabase}
+                onChange={(e) => setUnenrollInDatabase(e.target.checked)}
+              />
+              Отчислить студентов в базе данных
+            </label>
+          </div>
+        )}
 
         <div className="actions" style={{ marginTop: '20px' }}>
           <button

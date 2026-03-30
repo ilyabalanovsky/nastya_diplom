@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { streamsAPI, studentsAPI } from '../api/api'
+import { useDialog } from './DialogProvider'
 
 function EnrollModal({ stream, onClose, onSave }) {
   const [students, setStudents] = useState([])
@@ -7,6 +8,7 @@ function EnrollModal({ stream, onClose, onSave }) {
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [enrolling, setEnrolling] = useState(false)
+  const { alert, confirm } = useDialog()
 
   useEffect(() => {
     loadStudents()
@@ -57,7 +59,7 @@ function EnrollModal({ stream, onClose, onSave }) {
     e.preventDefault()
     
     if (selectedStudentIds.length === 0) {
-      alert('Выберите хотя бы одного студента')
+      await alert('Выберите хотя бы одного студента')
       return
     }
 
@@ -67,13 +69,24 @@ function EnrollModal({ stream, onClose, onSave }) {
         selectedStudentIds.map((studentId) => streamsAPI.enroll(studentId, stream.id))
       )
       const failed = results.filter((result) => result.status === 'rejected')
+      const succeededStudentIds = selectedStudentIds.filter((_, index) => results[index].status === 'fulfilled')
       const successCount = results.length - failed.length
 
       if (failed.length > 0) {
-        alert(`Зачислено: ${successCount}. Ошибок: ${failed.length}`)
+        await alert(`Зачислено: ${successCount}. Ошибок: ${failed.length}`)
       } else {
-        alert(`Успешно зачислено: ${successCount}`)
+        await alert(`Успешно зачислено: ${successCount}`)
       }
+
+      if (succeededStudentIds.length > 0 && (await confirm('Сгенерировать приказ о зачислении?'))) {
+        onSave({
+          openEnrollmentOrder: true,
+          streamId: stream.id,
+          studentIds: succeededStudentIds,
+        })
+        return
+      }
+
       onSave()
     } catch (error) {
       console.error('Ошибка зачисления:', error)
