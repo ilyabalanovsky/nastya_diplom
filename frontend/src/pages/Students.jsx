@@ -3,6 +3,7 @@ import { studentsAPI, importAPI, communicationAPI } from '../api/api'
 import StudentModal from '../components/StudentModal'
 import StudentCard from '../components/StudentCard'
 import { useDialog } from '../components/DialogProvider'
+import { ensureArray } from '../utils/ensureArray'
 
 function Students() {
   const [students, setStudents] = useState([])
@@ -21,7 +22,7 @@ function Students() {
     try {
       setLoading(true)
       const response = await studentsAPI.getAll()
-      setStudents(response.data)
+      setStudents(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки студентов:', error)
       console.error('Ошибка загрузки данных')
@@ -37,7 +38,7 @@ function Students() {
     if (query.trim()) {
       try {
         const response = await studentsAPI.search(query)
-        setStudents(response.data)
+        setStudents(ensureArray(response.data))
       } catch (error) {
         console.error('Ошибка поиска:', error)
       }

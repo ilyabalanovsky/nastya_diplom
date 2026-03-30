@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { documentsAPI, streamsAPI } from '../../api/api'
 import { useDialog } from '../DialogProvider'
+import { ensureArray } from '../../utils/ensureArray'
 
 function EnrollmentOrderModal({ onClose, initialStreamId = null, initialStudentIds = [] }) {
   const [streams, setStreams] = useState([])
@@ -36,7 +37,7 @@ function EnrollmentOrderModal({ onClose, initialStreamId = null, initialStudentI
   const loadStreams = async () => {
     try {
       const response = await streamsAPI.getAll()
-      setStreams(response.data)
+      setStreams(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки потоков:', error)
     }
@@ -47,7 +48,7 @@ function EnrollmentOrderModal({ onClose, initialStreamId = null, initialStudentI
 
     try {
       const response = await streamsAPI.getById(selectedStream)
-      const enrolledStudents = response.data.students || []
+      const enrolledStudents = ensureArray(response.data?.students)
       setStreamStudents(enrolledStudents)
       setSelectedStudentIds((prev) => {
         if (initialStreamId === selectedStream && initialStudentIds.length > 0) {

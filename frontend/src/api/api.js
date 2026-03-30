@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const runtimeApiBaseUrl = window.__APP_CONFIG__?.VITE_API_BASE_URL
+const buildTimeApiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = runtimeApiBaseUrl || buildTimeApiBaseUrl
 if (!API_BASE_URL) {
   throw new Error('VITE_API_BASE_URL is not set')
 }

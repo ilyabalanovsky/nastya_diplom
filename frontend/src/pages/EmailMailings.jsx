@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { coursesAPI, mailingsAPI, streamsAPI } from '../api/api'
 import { useDialog } from '../components/DialogProvider'
+import { ensureArray } from '../utils/ensureArray'
 
 const PLACEHOLDERS = [
   '{{student_name}}',
@@ -72,11 +73,11 @@ function MailingStatusModal({ status, result, errorMessage, onClose }) {
                   <div><strong>Пропущено:</strong> {result.skipped_count}</div>
                 </div>
 
-                {result.failed_recipients?.length > 0 && (
+                {ensureArray(result.failed_recipients).length > 0 && (
                   <div className="mailing-status-errors">
                     <strong>Ошибки отправки</strong>
                     <div className="mailing-status-error-list">
-                      {result.failed_recipients.map((item) => (
+                      {ensureArray(result.failed_recipients).map((item) => (
                         <div key={`${item.student_id}-${item.email}`} className="mailing-status-error-item">
                           <div>{item.student_name} &lt;{item.email}&gt;</div>
                           <div>{item.error}</div>
@@ -152,8 +153,8 @@ function EmailMailings() {
         streamsAPI.getAll(),
         coursesAPI.getAll(),
       ])
-      setStreams(streamsResponse.data)
-      setCourses(coursesResponse.data)
+      setStreams(ensureArray(streamsResponse.data))
+      setCourses(ensureArray(coursesResponse.data))
     } catch (error) {
       console.error('Ошибка загрузки данных для рассылок:', error)
       await alert('Не удалось загрузить потоки и курсы для рассылки.')
@@ -166,8 +167,12 @@ function EmailMailings() {
     try {
       setDetailsLoading(true)
       const response = await streamsAPI.getById(streamId)
-      setSelectedStream(response.data)
-      setPreviewStudentId(response.data.students?.[0]?.id || null)
+      const nextStream = {
+        ...response.data,
+        students: ensureArray(response.data?.students),
+      }
+      setSelectedStream(nextStream)
+      setPreviewStudentId(nextStream.students[0]?.id || null)
     } catch (error) {
       console.error('Ошибка загрузки потока для рассылки:', error)
       setSelectedStream(null)

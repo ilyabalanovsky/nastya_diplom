@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { documentsAPI, streamsAPI } from '../../api/api'
 import { useDialog } from '../DialogProvider'
+import { ensureArray } from '../../utils/ensureArray'
 
 const createPaymentRow = () => ({
   employee_name: '',
@@ -48,7 +49,7 @@ function PaymentMemoModal({ onClose }) {
   const loadStreams = async () => {
     try {
       const response = await streamsAPI.getAll()
-      setStreams(response.data)
+      setStreams(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки потоков:', error)
     }

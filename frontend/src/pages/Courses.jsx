@@ -3,6 +3,7 @@ import { coursesAPI } from '../api/api'
 import CourseModal from '../components/CourseModal'
 import { Link } from 'react-router-dom'
 import { useDialog } from '../components/DialogProvider'
+import { ensureArray } from '../utils/ensureArray'
 
 function Courses() {
   const [courses, setCourses] = useState([])
@@ -19,7 +20,7 @@ function Courses() {
     try {
       setLoading(true)
       const response = await coursesAPI.getAll()
-      setCourses(response.data)
+      setCourses(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки курсов:', error)
       console.error('Ошибка загрузки данных')

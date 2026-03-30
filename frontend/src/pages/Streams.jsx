@@ -5,6 +5,7 @@ import EnrollModal from '../components/EnrollModal'
 import EnrollmentOrderModal from '../components/documents/EnrollmentOrderModal'
 import UnenrollmentOrderModal from '../components/documents/UnenrollmentOrderModal'
 import { useDialog } from '../components/DialogProvider'
+import { ensureArray } from '../utils/ensureArray'
 
 function Streams() {
   const [streams, setStreams] = useState([])
@@ -31,7 +32,7 @@ function Streams() {
     try {
       setLoading(true)
       const response = await streamsAPI.getAll()
-      setStreams(response.data)
+      setStreams(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки потоков:', error)
       console.error('Ошибка загрузки данных')
@@ -43,7 +44,7 @@ function Streams() {
   const loadCourses = async () => {
     try {
       const response = await coursesAPI.getAll()
-      setCourses(response.data)
+      setCourses(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки курсов:', error)
     }
@@ -52,7 +53,10 @@ function Streams() {
   const loadStreamDetails = async (streamId) => {
     try {
       const response = await streamsAPI.getById(streamId)
-      setSelectedStream(response.data)
+      setSelectedStream({
+        ...response.data,
+        students: ensureArray(response.data?.students),
+      })
     } catch (error) {
       console.error('Ошибка загрузки деталей потока:', error)
     }
@@ -98,7 +102,10 @@ function Streams() {
   const handleEnroll = async (stream) => {
     try {
       const response = await streamsAPI.getById(stream.id)
-      setEnrollTargetStream(response.data)
+      setEnrollTargetStream({
+        ...response.data,
+        students: ensureArray(response.data?.students),
+      })
       setShowEnrollModal(true)
     } catch (error) {
       console.error('Ошибка загрузки потока для зачисления:', error)

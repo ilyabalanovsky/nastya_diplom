@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { streamsAPI, studentsAPI } from '../api/api'
 import { useDialog } from './DialogProvider'
+import { ensureArray } from '../utils/ensureArray'
 
 function EnrollModal({ stream, onClose, onSave }) {
   const [students, setStudents] = useState([])
@@ -19,7 +20,7 @@ function EnrollModal({ stream, onClose, onSave }) {
       setLoading(true)
       const response = await studentsAPI.getAll()
       const enrolledIds = stream.students?.map(s => s.id) || []
-      const availableStudents = response.data.filter(s => !enrolledIds.includes(s.id))
+      const availableStudents = ensureArray(response.data).filter(s => !enrolledIds.includes(s.id))
       setStudents(availableStudents)
     } catch (error) {
       console.error('Ошибка загрузки студентов:', error)

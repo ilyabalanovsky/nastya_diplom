@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { documentsAPI, streamsAPI } from '../../api/api'
 import { useDialog } from '../DialogProvider'
+import { ensureArray } from '../../utils/ensureArray'
 
 function AccessPassModal({ onClose }) {
   const [streams, setStreams] = useState([])
@@ -30,7 +31,7 @@ function AccessPassModal({ onClose }) {
   const loadStreams = async () => {
     try {
       const response = await streamsAPI.getAll()
-      setStreams(response.data)
+      setStreams(ensureArray(response.data))
     } catch (error) {
       console.error('Ошибка загрузки потоков:', error)
     }
@@ -39,7 +40,7 @@ function AccessPassModal({ onClose }) {
   const loadStreamStudents = async (streamId) => {
     try {
       const response = await streamsAPI.getById(streamId)
-      setStudents(response.data.students || [])
+      setStudents(ensureArray(response.data?.students))
       setSelectedStudentIds([])
       setStartDate(response.data.start_date ? new Date(response.data.start_date).toISOString().split('T')[0] : '')
     } catch (error) {
