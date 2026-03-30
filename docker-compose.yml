@@ -24,8 +24,6 @@ services:
         condition: service_healthy
     ports:
       - "3400:8000"
-    volumes:
-      - ./backend:/app
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -41,17 +39,12 @@ services:
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Факультет компьютерных наук}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
       SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
       context: ./frontend
     ports:
-      - "3420:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev -- --host 0.0.0.0 --port 5173
+      - "3420:80"
 
 volumes:
   postgres_data:
