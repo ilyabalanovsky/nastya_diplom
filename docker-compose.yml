@@ -43,6 +43,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3400/api}
     ports:
       - "3420:80"
 
